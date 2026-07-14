@@ -5,6 +5,7 @@ import java.util.Map;
 import com.dataart.ticketing.domain.EmailVerificationToken;
 import com.dataart.ticketing.mail.MailService;
 import com.dataart.ticketing.repository.EmailVerificationTokenRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -53,6 +55,13 @@ class AuthFlowTest {
     @Autowired
     EmailVerificationTokenRepository verificationTokens;
 
+    @BeforeEach
+    void useJdkHttpClient() {
+        // The default TestRestTemplate factory (HttpURLConnection) can't do PATCH and
+        // mishandles 401/403 response bodies; the JDK HttpClient factory handles both.
+        rest.getRestTemplate().setRequestFactory(new JdkClientHttpRequestFactory());
+    }
+
     @Test
     void signupVerifyLoginAndMe() {
         String email = "alice@example.com";
@@ -70,7 +79,9 @@ class AuthFlowTest {
         assertThat(unverified.getBody()).containsEntry("code", "email_not_verified");
 
         // Verify using the token issued during sign up -> 200 verified
-        EmailVerificationToken token = verificationTokens.findAll().get(0);
+        EmailVerificationToken token = verificationTokens.findAll().stream()
+                .filter(t -> t.getUser().getEmail().equalsIgnoreCase(email))
+                .findFirst().orElseThrow();
         ResponseEntity<Map> verify = rest.getForEntity(
                 "/api/auth/verify?token=" + token.getToken(), Map.class);
         assertThat(verify.getStatusCode()).isEqualTo(HttpStatus.OK);
