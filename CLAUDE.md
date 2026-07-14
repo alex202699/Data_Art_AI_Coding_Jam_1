@@ -36,7 +36,7 @@ A hackathon three-tier Kanban ticket tracker. Full spec: `.claude/requirements/r
 ### Frontend (`frontend/src/app/`)
 - `core/` — `models.ts` (enums + interfaces), `api.service.ts`, `auth-api.service.ts`, `auth.service.ts` (token+user signals), `auth.guard.ts`, `auth.interceptor.ts`.
 - `layouts/` — `auth-shell` (centered card, public) and `app-shell` (header + user menu, guarded).
-- `pages/` — auth screens (login/signup/verify/forgot-password/reset-password) and app screens (board/teams/epics; board/teams/epics are still stubs).
+- `pages/` — auth screens (login/signup/verify/forgot-password/reset-password) and app screens: `board/` (Kanban with native drag-drop + `virtual-card-list`), `teams/`, `epics/`, `ticket-editor/` (create/edit + comments + activity). All implemented.
 - Global styles: `frontend/src/styles.css`.
 
 ## Conventions & non-obvious rules
