@@ -2,8 +2,9 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
-# Use ci when a lockfile is present, otherwise fall back to install.
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# `npm install` (not `npm ci`): it honors the committed lockfile but reconciles the
+# known chokidar 3/4 split in Angular 18's dev-dep tree that makes `npm ci` fail.
+RUN npm install --no-audit --no-fund
 COPY . .
 RUN npm run build
 

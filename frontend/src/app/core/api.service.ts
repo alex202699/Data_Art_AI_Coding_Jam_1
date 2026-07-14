@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { Comment, Epic, Team, Ticket } from './models';
@@ -9,7 +9,8 @@ import { Comment, Epic, Team, Ticket } from './models';
  * Thin typed wrapper over the backend HTTP API. All create/update/delete goes
  * through here — the backend + RDBMS are the system of record.
  *
- * Endpoints below match the intended API contract; fill in the backend to serve them.
+ * List/single responses are envelope-wrapped ({teams}/{team}/{epics}/{epic}); this
+ * service unwraps them so callers get plain models.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -18,13 +19,19 @@ export class ApiService {
 
   // --- Teams ---
   listTeams(): Observable<Team[]> {
-    return this.http.get<Team[]>(`${this.base}/teams`);
+    return this.http
+      .get<{ teams: Team[] }>(`${this.base}/teams`)
+      .pipe(map((r) => r.teams));
   }
   createTeam(name: string): Observable<Team> {
-    return this.http.post<Team>(`${this.base}/teams`, { name });
+    return this.http
+      .post<{ team: Team }>(`${this.base}/teams`, { name })
+      .pipe(map((r) => r.team));
   }
   renameTeam(id: string, name: string): Observable<Team> {
-    return this.http.put<Team>(`${this.base}/teams/${id}`, { name });
+    return this.http
+      .patch<{ team: Team }>(`${this.base}/teams/${id}`, { name })
+      .pipe(map((r) => r.team));
   }
   deleteTeam(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/teams/${id}`);
@@ -32,19 +39,25 @@ export class ApiService {
 
   // --- Epics ---
   listEpics(teamId: string): Observable<Epic[]> {
-    return this.http.get<Epic[]>(`${this.base}/teams/${teamId}/epics`);
+    return this.http
+      .get<{ epics: Epic[] }>(`${this.base}/epics`, { params: { teamId } })
+      .pipe(map((r) => r.epics));
   }
   createEpic(teamId: string, title: string, description?: string): Observable<Epic> {
-    return this.http.post<Epic>(`${this.base}/teams/${teamId}/epics`, { title, description });
+    return this.http
+      .post<{ epic: Epic }>(`${this.base}/epics`, { teamId, title, description })
+      .pipe(map((r) => r.epic));
   }
   updateEpic(id: string, title: string, description?: string): Observable<Epic> {
-    return this.http.put<Epic>(`${this.base}/epics/${id}`, { title, description });
+    return this.http
+      .patch<{ epic: Epic }>(`${this.base}/epics/${id}`, { title, description })
+      .pipe(map((r) => r.epic));
   }
   deleteEpic(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/epics/${id}`);
   }
 
-  // --- Tickets ---
+  // --- Tickets (endpoints land with the board feature) ---
   listTickets(teamId: string): Observable<Ticket[]> {
     return this.http.get<Ticket[]>(`${this.base}/teams/${teamId}/tickets`);
   }

@@ -30,6 +30,8 @@ export const TICKET_STATE_LABELS: Record<TicketState, string> = {
 export interface Team {
   id: string;
   name: string;
+  ticketCount: number;
+  epicCount: number;
   createdAt: string;
   modifiedAt: string;
 }
@@ -38,7 +40,8 @@ export interface Epic {
   id: string;
   teamId: string;
   title: string;
-  description?: string | null;
+  description: string | null;
+  ticketCount: number;
   createdAt: string;
   modifiedAt: string;
 }

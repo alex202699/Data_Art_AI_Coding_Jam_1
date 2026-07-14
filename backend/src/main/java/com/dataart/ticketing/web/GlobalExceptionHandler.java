@@ -6,6 +6,7 @@ import com.dataart.ticketing.auth.AuthExceptions.EmailAlreadyRegisteredException
 import com.dataart.ticketing.auth.AuthExceptions.EmailNotVerifiedException;
 import com.dataart.ticketing.auth.AuthExceptions.InvalidCredentialsException;
 import com.dataart.ticketing.auth.AuthExceptions.InvalidTokenException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -39,6 +40,14 @@ public class GlobalExceptionHandler {
                 ? "One or more fields are invalid."
                 : e.getMessage();
         return error(HttpStatus.BAD_REQUEST, message);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraint(DataIntegrityViolationException e) {
+        // Backstop for referential-integrity / unique violations that slip past the
+        // pre-checks (e.g. a concurrent delete). The specific services normally map
+        // these to precise messages first.
+        return error(HttpStatus.CONFLICT, "The operation conflicts with existing data.");
     }
 
     @ExceptionHandler(ResponseStatusException.class)
