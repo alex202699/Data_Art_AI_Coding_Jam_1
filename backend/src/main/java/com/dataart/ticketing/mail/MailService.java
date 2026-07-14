@@ -47,7 +47,9 @@ public class MailService {
     }
 
     private void send(String to, String subject, String body, String link) {
-        log.info("Email link for {}: {}", to, link);
+        // The link contains a single-use token — keep it out of INFO logs. Enable DEBUG
+        // for this logger locally (e.g. when not using the Mailpit inbox) to see it.
+        log.debug("Email link for {}: {}", to, link);
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(props.getMail().getFrom());
@@ -55,6 +57,7 @@ public class MailService {
             message.setSubject(subject);
             message.setText(body);
             mailSender.send(message);
+            log.info("Sent '{}' email to {}", subject, to);
         } catch (MailException e) {
             log.warn("Failed to send '{}' email to {}: {}", subject, to, e.getMessage());
         }

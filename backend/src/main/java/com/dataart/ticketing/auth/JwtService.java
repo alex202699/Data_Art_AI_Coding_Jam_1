@@ -19,7 +19,14 @@ public class JwtService {
     private final long ttlSeconds;
 
     public JwtService(AppProperties props) {
-        this.key = Keys.hmacShaKeyFor(props.getJwt().getSecret().getBytes(StandardCharsets.UTF_8));
+        String secret = props.getJwt().getSecret();
+        // Fail fast: no usable default. HS256 requires a >= 256-bit (32-byte) key.
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                    "JWT signing secret is missing or too short. Set the JWT_SECRET environment "
+                    + "variable to a random value of at least 32 bytes.");
+        }
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.ttlSeconds = props.getJwt().getTtlSeconds();
     }
 

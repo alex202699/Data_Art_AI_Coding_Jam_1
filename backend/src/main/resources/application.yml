@@ -43,8 +43,9 @@ app:
   reset:
     token-ttl-minutes: 60
   jwt:
-    # HS256 signing secret — MUST be overridden in every environment (>= 32 bytes).
-    secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789}
+    # HS256 signing secret. No default on purpose: the app fails to start unless JWT_SECRET
+    # is provided (>= 32 bytes). docker-compose supplies a dev value for local runs.
+    secret: ${JWT_SECRET:}
     ttl-seconds: ${JWT_TTL_SECONDS:604800}
 
 server:

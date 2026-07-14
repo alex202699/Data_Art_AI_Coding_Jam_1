@@ -31,6 +31,7 @@ class ApplicationContextTest {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("app.jwt.secret", () -> "test-secret-value-that-is-at-least-32-bytes-long");
     }
 
     @Autowired

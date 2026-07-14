@@ -30,13 +30,18 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-ticketing}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-ticketing}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:4200}
+      # Dev-only signing secret so `docker compose up` works out of the box. Override in .env
+      # for anything real — the backend refuses to start without a >= 32-byte JWT_SECRET.
       JWT_SECRET: ${JWT_SECRET:-dev-only-insecure-secret-change-me-0123456789}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-604800}
       # Defaults to the local Mailpit container so the email flow is testable out of the box.
       # Override to relay1.dataart.com (etc.) in .env for a real SMTP relay.
       SMTP_HOST: ${SMTP_HOST:-mailpit}
       SMTP_PORT: ${SMTP_PORT:-1025}
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_AUTH: ${SMTP_AUTH:-false}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-false}
       MAIL_FROM: ${MAIL_FROM:-no-reply@dataart.com}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
