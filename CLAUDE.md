@@ -11,9 +11,10 @@ A hackathon three-tier Kanban ticket tracker. Full spec: `.claude/requirements/r
 
 ## Running & tooling
 - Start everything from the repo root: `docker compose up --build`.
-- The host has **Docker only — no Maven, no Node**. Build/verify through Docker, never assume `mvn`/`npm`/`ng` on the host.
+- **Toolchain on the host:** Node + npm are installed (Angular 18-compatible); **Maven is NOT** — build the backend through Docker, don't assume `mvn`. The app is designed to build/run entirely via Docker regardless.
   - Backend build: happens in `backend/Dockerfile` (Maven image).
   - Frontend build: `frontend/Dockerfile` (Node image → nginx).
+  - Frontend deps are installed locally in `frontend/node_modules` (gitignored) with `package-lock.json` committed — for IDE IntelliSense and local `ng serve` / `npm test`. Run `npm install` in `frontend/` if the folder is missing.
   - Rebuild one service: `docker compose up -d --build <backend|frontend>`.
 - Ports: frontend http://localhost:4200 · backend http://localhost:8080/api · Mailpit inbox http://localhost:8025 · pgAdmin http://localhost:5050 · Postgres 5432.
 - **Email flow (dev):** SMTP defaults to the `mailpit` container; verification/reset links land in the Mailpit inbox. Config is env-driven and overridable to `relay1.dataart.com`.
