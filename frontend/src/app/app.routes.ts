@@ -66,6 +66,18 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/epics/epics.component').then((m) => m.EpicsComponent),
       },
+      {
+        path: 'tickets/new',
+        data: { mode: 'create' },
+        loadComponent: () =>
+          import('./pages/ticket-editor/ticket-editor.component').then((m) => m.TicketEditorComponent),
+      },
+      {
+        path: 'tickets/:id',
+        data: { mode: 'edit' },
+        loadComponent: () =>
+          import('./pages/ticket-editor/ticket-editor.component').then((m) => m.TicketEditorComponent),
+      },
       { path: '', pathMatch: 'full', redirectTo: 'board' },
     ],
   },

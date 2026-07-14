@@ -49,12 +49,14 @@ export interface Epic {
 export interface Ticket {
   id: string;
   teamId: string;
-  epicId?: string | null;
+  epicId: string | null;
+  epicTitle: string | null;
   type: TicketType;
   state: TicketState;
   title: string;
   body: string;
   createdBy: string;
+  createdByEmail: string;
   createdAt: string;
   modifiedAt: string;
 }
@@ -62,9 +64,19 @@ export interface Ticket {
 export interface Comment {
   id: string;
   ticketId: string;
-  author: string;
+  authorId: string;
+  authorEmail: string;
   body: string;
   createdAt: string;
+}
+
+export interface TicketInput {
+  teamId: string;
+  epicId: string | null;
+  type: TicketType;
+  state?: TicketState;
+  title: string;
+  body: string;
 }
 
 // --- Auth ---

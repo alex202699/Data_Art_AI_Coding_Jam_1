@@ -59,7 +59,7 @@ public class TeamService {
     public void delete(UUID id) {
         Team team = teams.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
-        if (epics.countByTeam_Id(id) > 0 || tickets.countByTeamId(id) > 0) {
+        if (epics.countByTeam_Id(id) > 0 || tickets.countByTeam_Id(id) > 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This team cannot be deleted while it has tickets or epics");
         }
@@ -78,7 +78,7 @@ public class TeamService {
         return new TeamResponse(
                 team.getId().toString(),
                 team.getName(),
-                tickets.countByTeamId(team.getId()),
+                tickets.countByTeam_Id(team.getId()),
                 epics.countByTeam_Id(team.getId()),
                 team.getCreatedAt(),
                 team.getModifiedAt());

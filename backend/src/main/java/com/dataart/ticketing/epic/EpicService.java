@@ -64,7 +64,7 @@ public class EpicService {
     public void delete(UUID id) {
         Epic epic = epics.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Epic not found"));
-        if (tickets.countByEpicId(id) > 0) {
+        if (tickets.countByEpic_Id(id) > 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This epic cannot be deleted while tickets reference it");
         }
@@ -103,7 +103,7 @@ public class EpicService {
                 epic.getTeam().getId().toString(),
                 epic.getTitle(),
                 epic.getDescription(),
-                tickets.countByEpicId(epic.getId()),
+                tickets.countByEpic_Id(epic.getId()),
                 epic.getCreatedAt(),
                 epic.getModifiedAt());
     }

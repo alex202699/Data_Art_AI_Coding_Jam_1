@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
-import { Comment, Epic, Team, Ticket } from './models';
+import { Comment, Epic, Team, Ticket, TicketInput, TicketState } from './models';
 
 /**
  * Thin typed wrapper over the backend HTTP API. All create/update/delete goes
@@ -57,18 +57,31 @@ export class ApiService {
     return this.http.delete<void>(`${this.base}/epics/${id}`);
   }
 
-  // --- Tickets (endpoints land with the board feature) ---
+  // --- Tickets ---
   listTickets(teamId: string): Observable<Ticket[]> {
-    return this.http.get<Ticket[]>(`${this.base}/teams/${teamId}/tickets`);
+    return this.http
+      .get<{ tickets: Ticket[] }>(`${this.base}/tickets`, { params: { teamId } })
+      .pipe(map((r) => r.tickets));
   }
   getTicket(id: string): Observable<Ticket> {
-    return this.http.get<Ticket>(`${this.base}/tickets/${id}`);
+    return this.http
+      .get<{ ticket: Ticket }>(`${this.base}/tickets/${id}`)
+      .pipe(map((r) => r.ticket));
   }
-  createTicket(payload: Partial<Ticket>): Observable<Ticket> {
-    return this.http.post<Ticket>(`${this.base}/tickets`, payload);
+  createTicket(input: TicketInput): Observable<Ticket> {
+    return this.http
+      .post<{ ticket: Ticket }>(`${this.base}/tickets`, input)
+      .pipe(map((r) => r.ticket));
   }
-  updateTicket(id: string, payload: Partial<Ticket>): Observable<Ticket> {
-    return this.http.put<Ticket>(`${this.base}/tickets/${id}`, payload);
+  updateTicket(id: string, input: TicketInput): Observable<Ticket> {
+    return this.http
+      .patch<{ ticket: Ticket }>(`${this.base}/tickets/${id}`, input)
+      .pipe(map((r) => r.ticket));
+  }
+  updateTicketState(id: string, state: TicketState): Observable<Ticket> {
+    return this.http
+      .patch<{ ticket: Ticket }>(`${this.base}/tickets/${id}/state`, { state })
+      .pipe(map((r) => r.ticket));
   }
   deleteTicket(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/tickets/${id}`);
@@ -76,9 +89,13 @@ export class ApiService {
 
   // --- Comments ---
   listComments(ticketId: string): Observable<Comment[]> {
-    return this.http.get<Comment[]>(`${this.base}/tickets/${ticketId}/comments`);
+    return this.http
+      .get<{ comments: Comment[] }>(`${this.base}/tickets/${ticketId}/comments`)
+      .pipe(map((r) => r.comments));
   }
   addComment(ticketId: string, body: string): Observable<Comment> {
-    return this.http.post<Comment>(`${this.base}/tickets/${ticketId}/comments`, { body });
+    return this.http
+      .post<{ comment: Comment }>(`${this.base}/tickets/${ticketId}/comments`, { body })
+      .pipe(map((r) => r.comment));
   }
 }
