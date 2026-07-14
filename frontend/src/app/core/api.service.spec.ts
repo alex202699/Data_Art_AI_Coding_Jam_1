@@ -87,4 +87,30 @@ describe('ApiService', () => {
     getReq.flush({ comments: [{ id: 'c1' }] });
     expect(comments.length).toBe(1);
   });
+
+  it('edits a comment via PATCH', () => {
+    let updated: any;
+    api.updateComment('k1', 'c1', 'edited').subscribe((c) => (updated = c));
+    const req = http.expectOne('/api/tickets/k1/comments/c1');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ body: 'edited' });
+    req.flush({ comment: { id: 'c1', body: 'edited', editedAt: '2026-01-01T00:00:00Z' } });
+    expect(updated.editedAt).toBeTruthy();
+  });
+
+  it('deletes a comment via DELETE', () => {
+    api.deleteComment('k1', 'c1').subscribe();
+    const req = http.expectOne('/api/tickets/k1/comments/c1');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+  });
+
+  it('lists activity and unwraps {activity}', () => {
+    let feed: unknown[] = [];
+    api.listActivity('k1').subscribe((r) => (feed = r));
+    const req = http.expectOne('/api/tickets/k1/activity');
+    expect(req.request.method).toBe('GET');
+    req.flush({ activity: [{ id: 'a1', kind: 'created' }] });
+    expect(feed.length).toBe(1);
+  });
 });

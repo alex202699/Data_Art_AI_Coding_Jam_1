@@ -11,12 +11,16 @@ public final class CommentDtos {
     public record CreateCommentRequest(String body) {
     }
 
+    public record UpdateCommentRequest(String body) {
+    }
+
     public record CommentResponse(
             String id,
             String ticketId,
             String authorId,
             String authorEmail,
             String body,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt,
+            OffsetDateTime editedAt) {
     }
 }

@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 
 import { environment } from '../../environments/environment';
-import { Comment, Epic, Team, Ticket, TicketInput, TicketState } from './models';
+import { Activity, Comment, Epic, Team, Ticket, TicketInput, TicketState } from './models';
 
 /**
  * Thin typed wrapper over the backend HTTP API. All create/update/delete goes
@@ -97,5 +97,20 @@ export class ApiService {
     return this.http
       .post<{ comment: Comment }>(`${this.base}/tickets/${ticketId}/comments`, { body })
       .pipe(map((r) => r.comment));
+  }
+  updateComment(ticketId: string, commentId: string, body: string): Observable<Comment> {
+    return this.http
+      .patch<{ comment: Comment }>(`${this.base}/tickets/${ticketId}/comments/${commentId}`, { body })
+      .pipe(map((r) => r.comment));
+  }
+  deleteComment(ticketId: string, commentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/tickets/${ticketId}/comments/${commentId}`);
+  }
+
+  // --- Activity ---
+  listActivity(ticketId: string): Observable<Activity[]> {
+    return this.http
+      .get<{ activity: Activity[] }>(`${this.base}/tickets/${ticketId}/activity`)
+      .pipe(map((r) => r.activity));
   }
 }

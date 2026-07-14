@@ -5,8 +5,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { formatCommentTime, formatDateTimeUTC } from '../../core/format';
 import {
+  Activity,
   Comment,
   Epic,
   Team,
@@ -128,9 +130,28 @@ const SELECTED_TEAM_KEY = 'ticketing.selectedTeamId';
                       <li class="comment">
                         <div class="comment-meta">
                           <strong>{{ c.authorEmail }}</strong>
-                          <span>{{ commentTime(c.createdAt) }}</span>
+                          <span>{{ commentTime(c.createdAt) }}{{ c.editedAt ? ' · edited' : '' }}</span>
                         </div>
-                        <p class="comment-body">{{ c.body }}</p>
+                        @if (editingId() === c.id) {
+                          <div class="comment-edit">
+                            <textarea aria-label="Edit comment" [(ngModel)]="editingBody"
+                                      [ngModelOptions]="{ standalone: true }"></textarea>
+                            <div class="comment-actions">
+                              <button type="button" class="btn btn-inline btn-sm"
+                                      [disabled]="!editingBody.trim()" (click)="saveEditComment(c)">Save</button>
+                              <button type="button" class="btn btn-secondary btn-inline btn-sm"
+                                      (click)="cancelEditComment()">Cancel</button>
+                            </div>
+                          </div>
+                        } @else {
+                          <p class="comment-body">{{ c.body }}</p>
+                          @if (isOwn(c)) {
+                            <div class="comment-actions">
+                              <button type="button" class="linklike" (click)="startEditComment(c)">Edit</button>
+                              <button type="button" class="linklike" (click)="deleteComment(c)">Delete</button>
+                            </div>
+                          }
+                        }
                       </li>
                     }
                   </ul>
@@ -149,6 +170,28 @@ const SELECTED_TEAM_KEY = 'ticketing.selectedTeamId';
                   </div>
                 </form>
               </aside>
+
+              <section class="activity">
+                <div class="comments-header">
+                  <h2>Activity</h2>
+                  <span class="count">{{ activity().length }}</span>
+                </div>
+                @if (activity().length === 0) {
+                  <p class="notice">No activity yet.</p>
+                } @else {
+                  <ul class="comment-list">
+                    @for (a of activityNewestFirst(); track a.id) {
+                      <li class="comment">
+                        <div class="comment-meta">
+                          <strong>{{ a.actorEmail }}</strong>
+                          <span>{{ commentTime(a.createdAt) }}</span>
+                        </div>
+                        <p class="comment-body">{{ describeActivity(a) }}</p>
+                      </li>
+                    }
+                  </ul>
+                }
+              </section>
             </div>
           }
         </div>
@@ -158,6 +201,7 @@ const SELECTED_TEAM_KEY = 'ticketing.selectedTeamId';
 })
 export class TicketEditorComponent implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly auth = inject(AuthService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -167,6 +211,7 @@ export class TicketEditorComponent implements OnInit {
   readonly teams = signal<Team[]>([]);
   readonly epics = signal<Epic[]>([]);
   readonly comments = signal<Comment[]>([]);
+  readonly activity = signal<Activity[]>([]);
 
   readonly loading = signal(true);
   readonly loadError = signal<string | null>(null);
@@ -174,6 +219,10 @@ export class TicketEditorComponent implements OnInit {
   readonly formError = signal<string | null>(null);
   readonly posting = signal(false);
   readonly commentError = signal<string | null>(null);
+
+  // Inline comment editing.
+  readonly editingId = signal<string | null>(null);
+  editingBody = '';
 
   // Loaded ticket metadata (edit mode).
   private readonly loaded = signal<Ticket | null>(null);
@@ -219,9 +268,10 @@ export class TicketEditorComponent implements OnInit {
       this.teams.set(teams);
 
       if (this.mode === 'edit' && this.ticketId) {
-        const [ticket, comments] = await Promise.all([
+        const [ticket, comments, activity] = await Promise.all([
           firstValueFrom(this.api.getTicket(this.ticketId)),
           firstValueFrom(this.api.listComments(this.ticketId)),
+          firstValueFrom(this.api.listActivity(this.ticketId)),
         ]);
         this.loaded.set(ticket);
         this.teamId = ticket.teamId;
@@ -231,6 +281,7 @@ export class TicketEditorComponent implements OnInit {
         this.title = ticket.title;
         this.body = ticket.body;
         this.comments.set(comments);
+        this.activity.set(activity);
       } else {
         const stored = localStorage.getItem(SELECTED_TEAM_KEY);
         const valid = stored && teams.some((t) => t.id === stored);
@@ -317,10 +368,105 @@ export class TicketEditorComponent implements OnInit {
       const created = await firstValueFrom(this.api.addComment(this.ticketId, body));
       this.comments.update((list) => [...list, created]);
       this.commentBody = '';
+      await this.refreshActivity();
     } catch (err) {
       this.commentError.set(this.msg(err, 'Could not add the comment'));
     } finally {
       this.posting.set(false);
+    }
+  }
+
+  // --- Comment edit / delete (own comments only) ---
+  isOwn(c: Comment): boolean {
+    return this.auth.user()?.id === c.authorId;
+  }
+
+  startEditComment(c: Comment): void {
+    this.commentError.set(null);
+    this.editingId.set(c.id);
+    this.editingBody = c.body;
+  }
+
+  cancelEditComment(): void {
+    this.editingId.set(null);
+  }
+
+  async saveEditComment(c: Comment): Promise<void> {
+    const body = this.editingBody.trim();
+    if (!body || !this.ticketId) {
+      return;
+    }
+    try {
+      const updated = await firstValueFrom(this.api.updateComment(this.ticketId, c.id, body));
+      this.comments.update((list) => list.map((x) => (x.id === c.id ? updated : x)));
+      this.editingId.set(null);
+      await this.refreshActivity();
+    } catch (err) {
+      this.commentError.set(this.msg(err, 'Could not update the comment'));
+    }
+  }
+
+  async deleteComment(c: Comment): Promise<void> {
+    if (!this.ticketId || !confirm('Delete this comment? This cannot be undone.')) {
+      return;
+    }
+    try {
+      await firstValueFrom(this.api.deleteComment(this.ticketId, c.id));
+      this.comments.update((list) => list.filter((x) => x.id !== c.id));
+      await this.refreshActivity();
+    } catch (err) {
+      this.commentError.set(this.msg(err, 'Could not delete the comment'));
+    }
+  }
+
+  // --- Activity ---
+  activityNewestFirst(): Activity[] {
+    return [...this.activity()].reverse();
+  }
+
+  private async refreshActivity(): Promise<void> {
+    if (this.ticketId) {
+      try {
+        this.activity.set(await firstValueFrom(this.api.listActivity(this.ticketId)));
+      } catch {
+        // non-fatal
+      }
+    }
+  }
+
+  describeActivity(a: Activity): string {
+    const stateLabel = (v: string | null) =>
+      (v && TICKET_STATE_LABELS[v as TicketState]) || v || '—';
+    const typeLabel = (v: string | null) =>
+      (v && TICKET_TYPE_LABELS[v as TicketType]) || v || '—';
+    switch (a.kind) {
+      case 'created':
+        return 'created the ticket';
+      case 'comment_added':
+        return 'added a comment';
+      case 'comment_edited':
+        return 'edited a comment';
+      case 'comment_deleted':
+        return 'deleted a comment';
+      case 'state_changed':
+        return `changed state from ${stateLabel(a.oldValue)} to ${stateLabel(a.newValue)}`;
+      case 'field_changed':
+        switch (a.field) {
+          case 'body':
+            return 'updated the description';
+          case 'title':
+            return `changed the title to “${a.newValue}”`;
+          case 'type':
+            return `changed type from ${typeLabel(a.oldValue)} to ${typeLabel(a.newValue)}`;
+          case 'team':
+            return `moved from team ${a.oldValue} to ${a.newValue}`;
+          case 'epic':
+            return `changed epic from ${a.oldValue} to ${a.newValue}`;
+          default:
+            return `changed ${a.field}`;
+        }
+      default:
+        return a.kind;
     }
   }
 

@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { ApiService } from '../../core/api.service';
+import { VirtualCardListComponent } from './virtual-card-list.component';
 import { formatRelative } from '../../core/format';
 import {
   Epic,
@@ -26,7 +27,7 @@ const SELECTED_TEAM_KEY = 'ticketing.selectedTeamId';
 @Component({
   selector: 'app-board',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, VirtualCardListComponent],
   template: `
     <section>
       <div class="page-toolbar">
@@ -124,19 +125,10 @@ const SELECTED_TEAM_KEY = 'ticketing.selectedTeamId';
                   @if (grouped()[state].length === 0) {
                     <p class="board-empty">No tickets</p>
                   } @else {
-                    @for (t of grouped()[state]; track t.id) {
-                      <article class="ticket-card" [draggable]="true"
-                               (dragstart)="draggingId.set(t.id)" (dragend)="clearDrag()"
-                               (click)="open(t)" tabindex="0"
-                               (keydown.enter)="open(t)" (keydown.space)="open(t)">
-                        <span class="type-tag">{{ typeLabels[t.type] }}</span>
-                        <p class="ticket-card-title">{{ t.title }}</p>
-                        <div class="ticket-card-foot">
-                          <span class="ticket-card-epic">{{ t.epicTitle ? 'Epic: ' + t.epicTitle : 'No epic' }}</span>
-                          <span class="ticket-card-time">{{ rel(t.modifiedAt) }}</span>
-                        </div>
-                      </article>
-                    }
+                    <app-virtual-card-list
+                      [items]="grouped()[state]"
+                      [trackId]="trackTicketId"
+                      [itemTemplate]="cardTpl" />
                   }
                 </div>
               </div>
@@ -145,6 +137,21 @@ const SELECTED_TEAM_KEY = 'ticketing.selectedTeamId';
         }
       }
     </section>
+
+    <!-- Shared card template (declared in the board so its bindings reach board methods). -->
+    <ng-template #cardTpl let-t>
+      <article class="ticket-card" [draggable]="true"
+               (dragstart)="draggingId.set(t.id)" (dragend)="clearDrag()"
+               (click)="open(t)" tabindex="0"
+               (keydown.enter)="open(t)" (keydown.space)="open(t)">
+        <span class="type-tag">{{ typeLabel(t) }}</span>
+        <p class="ticket-card-title">{{ t.title }}</p>
+        <div class="ticket-card-foot">
+          <span class="ticket-card-epic">{{ t.epicTitle ? 'Epic: ' + t.epicTitle : 'No epic' }}</span>
+          <span class="ticket-card-time">{{ rel(t.modifiedAt) }}</span>
+        </div>
+      </article>
+    </ng-template>
   `,
 })
 export class BoardComponent implements OnInit {
@@ -164,6 +171,13 @@ export class BoardComponent implements OnInit {
   readonly search = signal('');
   readonly typeFilter = signal<TicketType | null>(null);
   readonly epicFilter = signal<string | null>(null);
+
+  readonly trackTicketId = (t: Ticket): string => t.id;
+
+  // Card template's `t` is an untyped ng-template var; keep the label lookup typed here.
+  typeLabel(t: Ticket): string {
+    return TICKET_TYPE_LABELS[t.type];
+  }
 
   readonly draggingId = signal<string | null>(null);
   readonly dragOver = signal<TicketState | null>(null);

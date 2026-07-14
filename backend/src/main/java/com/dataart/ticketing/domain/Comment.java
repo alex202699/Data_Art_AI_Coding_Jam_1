@@ -37,6 +37,9 @@ public class Comment {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "edited_at")
+    private OffsetDateTime editedAt;
+
     protected Comment() {
     }
 
@@ -49,6 +52,20 @@ public class Comment {
     @PrePersist
     void onCreate() {
         this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public void setBody(String body) {
+        this.body = body;
+    }
+
+    /** Records an edit: updates the body and stamps edited_at. */
+    public void markEdited(String newBody) {
+        this.body = newBody;
+        this.editedAt = OffsetDateTime.now(ZoneOffset.UTC);
+    }
+
+    public OffsetDateTime getEditedAt() {
+        return editedAt;
     }
 
     public UUID getId() {

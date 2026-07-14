@@ -3,6 +3,7 @@ package com.dataart.ticketing.ticket;
 import java.util.Map;
 import java.util.UUID;
 
+import com.dataart.ticketing.activity.ActivityService;
 import com.dataart.ticketing.ticket.dto.TicketDtos.CreateTicketRequest;
 import com.dataart.ticketing.ticket.dto.TicketDtos.StateRequest;
 import com.dataart.ticketing.ticket.dto.TicketDtos.TicketResponse;
@@ -25,9 +26,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final ActivityService activityService;
 
-    public TicketController(TicketService ticketService) {
+    public TicketController(TicketService ticketService, ActivityService activityService) {
         this.ticketService = ticketService;
+        this.activityService = activityService;
     }
 
     @GetMapping
@@ -49,15 +52,22 @@ public class TicketController {
     }
 
     @PatchMapping("/{id}")
-    public Map<String, Object> update(@PathVariable UUID id, @RequestBody UpdateTicketRequest req) {
+    public Map<String, Object> update(@AuthenticationPrincipal UUID userId,
+                                      @PathVariable UUID id, @RequestBody UpdateTicketRequest req) {
         TicketResponse ticket = ticketService.update(
-                id, req.teamId(), req.epicId(), req.type(), req.state(), req.title(), req.body());
+                userId, id, req.teamId(), req.epicId(), req.type(), req.state(), req.title(), req.body());
         return Map.of("ticket", ticket);
     }
 
     @PatchMapping("/{id}/state")
-    public Map<String, Object> updateState(@PathVariable UUID id, @RequestBody StateRequest req) {
-        return Map.of("ticket", ticketService.updateState(id, req.state()));
+    public Map<String, Object> updateState(@AuthenticationPrincipal UUID userId,
+                                           @PathVariable UUID id, @RequestBody StateRequest req) {
+        return Map.of("ticket", ticketService.updateState(userId, id, req.state()));
+    }
+
+    @GetMapping("/{id}/activity")
+    public Map<String, Object> activity(@PathVariable UUID id) {
+        return Map.of("activity", activityService.list(id));
     }
 
     @DeleteMapping("/{id}")

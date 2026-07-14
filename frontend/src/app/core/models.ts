@@ -68,6 +68,27 @@ export interface Comment {
   authorEmail: string;
   body: string;
   createdAt: string;
+  editedAt: string | null;
+}
+
+export type ActivityKind =
+  | 'created'
+  | 'field_changed'
+  | 'state_changed'
+  | 'comment_added'
+  | 'comment_edited'
+  | 'comment_deleted';
+
+export interface Activity {
+  id: string;
+  ticketId: string;
+  actorId: string;
+  actorEmail: string;
+  kind: ActivityKind;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string;
 }
 
 export interface TicketInput {

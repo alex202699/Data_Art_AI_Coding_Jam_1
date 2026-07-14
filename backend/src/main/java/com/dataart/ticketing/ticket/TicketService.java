@@ -6,6 +6,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import com.dataart.ticketing.activity.ActivityService;
 import com.dataart.ticketing.domain.Epic;
 import com.dataart.ticketing.domain.Team;
 import com.dataart.ticketing.domain.Ticket;
@@ -31,13 +32,16 @@ public class TicketService {
     private final TeamRepository teams;
     private final EpicRepository epics;
     private final UserRepository users;
+    private final ActivityService activityService;
 
     public TicketService(TicketRepository tickets, TeamRepository teams,
-                         EpicRepository epics, UserRepository users) {
+                         EpicRepository epics, UserRepository users,
+                         ActivityService activityService) {
         this.tickets = tickets;
         this.teams = teams;
         this.epics = epics;
         this.users = users;
+        this.activityService = activityService;
     }
 
     @Transactional(readOnly = true)
@@ -69,13 +73,14 @@ public class TicketService {
         User creator = users.findById(currentUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
-        Ticket ticket = new Ticket(team, epic, type, "new", title, body, creator);
-        return toResponse(tickets.save(ticket));
+        Ticket ticket = tickets.save(new Ticket(team, epic, type, "new", title, body, creator));
+        activityService.record(ticket, currentUserId, ActivityService.CREATED, null, null, null);
+        return toResponse(ticket);
     }
 
     @Transactional
-    public TicketResponse update(UUID id, String rawTeamId, String rawEpicId, String rawType,
-                                 String rawState, String rawTitle, String rawBody) {
+    public TicketResponse update(UUID currentUserId, UUID id, String rawTeamId, String rawEpicId,
+                                 String rawType, String rawState, String rawTitle, String rawBody) {
         UUID teamId = parseUuid(rawTeamId, "A valid team is required");
         String type = requireEnum(rawType, TYPES, "Type must be one of bug, feature, fix");
         String state = requireEnum(rawState, STATES, "A valid state is required");
@@ -87,12 +92,20 @@ public class TicketService {
                 .orElseThrow(() -> badRequest("The selected team no longer exists"));
         Epic epic = resolveEpic(rawEpicId, team);
 
-        boolean changed = !team.getId().equals(ticket.getTeam().getId())
-                || !Objects.equals(epicId(epic), epicId(ticket.getEpic()))
-                || !type.equals(ticket.getType())
-                || !state.equals(ticket.getState())
-                || !title.equals(ticket.getTitle())
-                || !body.equals(ticket.getBody());
+        // Snapshot old values so we can record precise per-field history.
+        Team oldTeam = ticket.getTeam();
+        Epic oldEpic = ticket.getEpic();
+        String oldType = ticket.getType();
+        String oldState = ticket.getState();
+        String oldTitle = ticket.getTitle();
+        String oldBody = ticket.getBody();
+
+        boolean changed = !team.getId().equals(oldTeam.getId())
+                || !Objects.equals(epicId(epic), epicId(oldEpic))
+                || !type.equals(oldType)
+                || !state.equals(oldState)
+                || !title.equals(oldTitle)
+                || !body.equals(oldBody);
 
         if (changed) { // no-op saves must not advance modified_at
             ticket.setTeam(team);
@@ -102,17 +115,38 @@ public class TicketService {
             ticket.setTitle(title);
             ticket.setBody(body);
             ticket.touch();
+
+            if (!state.equals(oldState)) {
+                activityService.record(ticket, currentUserId, ActivityService.STATE_CHANGED, "state", oldState, state);
+            }
+            if (!type.equals(oldType)) {
+                activityService.record(ticket, currentUserId, ActivityService.FIELD_CHANGED, "type", oldType, type);
+            }
+            if (!title.equals(oldTitle)) {
+                activityService.record(ticket, currentUserId, ActivityService.FIELD_CHANGED, "title", oldTitle, title);
+            }
+            if (!body.equals(oldBody)) { // bodies can be large — don't store values
+                activityService.record(ticket, currentUserId, ActivityService.FIELD_CHANGED, "body", null, null);
+            }
+            if (!team.getId().equals(oldTeam.getId())) {
+                activityService.record(ticket, currentUserId, ActivityService.FIELD_CHANGED, "team", oldTeam.getName(), team.getName());
+            }
+            if (!Objects.equals(epicId(epic), epicId(oldEpic))) {
+                activityService.record(ticket, currentUserId, ActivityService.FIELD_CHANGED, "epic", epicTitle(oldEpic), epicTitle(epic));
+            }
         }
         return toResponse(ticket);
     }
 
     @Transactional
-    public TicketResponse updateState(UUID id, String rawState) {
+    public TicketResponse updateState(UUID currentUserId, UUID id, String rawState) {
         String state = requireEnum(rawState, STATES, "A valid state is required");
         Ticket ticket = require(id);
-        if (!state.equals(ticket.getState())) {
+        String oldState = ticket.getState();
+        if (!state.equals(oldState)) {
             ticket.setState(state);
             ticket.touch();
+            activityService.record(ticket, currentUserId, ActivityService.STATE_CHANGED, "state", oldState, state);
         }
         return toResponse(ticket);
     }
@@ -144,6 +178,11 @@ public class TicketService {
 
     private static UUID epicId(Epic epic) {
         return epic == null ? null : epic.getId();
+    }
+
+    /** Human label for an epic in history (null epic renders as "None"). */
+    private static String epicTitle(Epic epic) {
+        return epic == null ? "None" : epic.getTitle();
     }
 
     private static UUID parseUuid(String raw, String message) {
